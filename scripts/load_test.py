@@ -23,7 +23,8 @@ def send_request(client: httpx.Client, payload: dict) -> None:
         start = time.perf_counter()
         r = client.post(f"{BASE_URL}/chat", json=payload)
         latency = (time.perf_counter() - start) * 1000
-        print(f"[{r.status_code}] {r.json().get('correlation_id')} | {payload['feature']} | {latency:.1f}ms")
+        cid = r.headers.get("x-request-id") or r.json().get("correlation_id", "None")
+        print(f"[{r.status_code}] {cid} | {payload['feature']} | {latency:.1f}ms")
     except Exception as e:
         print(f"Error: {e}")
 
@@ -49,7 +50,7 @@ def main() -> None:
             for line in QUERIES.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-    
+
     with httpx.Client(timeout=30.0) as client:
         if args.concurrency > 1:
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
