@@ -2,14 +2,14 @@
 
 ## 1. Thông tin nhóm
 
-- Tên nhóm:
-- Repository URL:
+- Tên nhóm: Cường Độ Đức Trí
+- Repository URL: https://github.com/lecuong1502/Day13-K3-Observabilit-CuongDoDucTri
 - Commit SHA cuối:
 - Thành viên và vai trò:
 
 ## 2. Kết quả kỹ thuật
 
-- Điểm `validate_logs.py`:
+- Điểm `validate_logs.py`: 30/100
 - Tổng số traces:
 - Số PII leak còn lại:
 - Link/đường dẫn dashboard:
