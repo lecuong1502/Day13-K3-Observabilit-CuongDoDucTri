@@ -22,7 +22,7 @@ class JsonlFileProcessor:
         return event_dict
 
 
-def scrubevent(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def scrub_event(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     for key, val in event_dict.items():
         if isinstance(val, str):
             event_dict[key] = scrub_text(val)
