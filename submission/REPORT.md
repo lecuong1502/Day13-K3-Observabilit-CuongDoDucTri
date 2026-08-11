@@ -48,13 +48,35 @@
 
 ## 6. Điều tra challenge
 
-- Challenge ID: _(chờ Lab Coach release `config/challenge.json`)_
-- Triệu chứng từ metrics: _(chưa thực hiện)_
-- Trace ID liên quan: _(chưa thực hiện)_
-- Log line/correlation ID liên quan: _(chưa thực hiện)_
-- Root cause: _(chưa thực hiện)_
-- Fix action: _(chưa thực hiện)_
-- Preventive measure: _(chưa thực hiện)_
+- Challenge ID: day13-k3-observability-v1
+- Triệu chứng từ metrics: `latency_p95` tăng vọt lên 4292ms, `latency_p50` = 4054ms — vượt xa `latency_threshold_ms: 2000` quy định trong challenge (gấp hơn 2 lần ngưỡng). `error_rate_pct` vẫn 0% — đây không phải lỗi hệ thống mà là vấn đề hiệu năng.
+
+- Trace ID liên quan: trace có `correlation_id = req-ac019214` (latency 4292ms — trùng khớp chính xác với `latency_p95` trong `/metrics`), session `k3-challenge-s04`. Trên Langfuse, waterfall của trace này cho thấy span `retrieve` chiếm phần lớn thời gian xử lý (~2.5s), phần còn lại là `generate` (~0.15s) cộng overhead.
+
+- Log line/correlation ID liên quan:
+```json
+{"service": "api", "payload": {"message_preview": "Can a customer request a refund after purchase?"}, "event": "request_received", "session_id": "k3-challenge-s04", "feature": "refund", "correlation_id": "req-ac019214", "ts": "2026-08-11T04:12:47.009582Z"}
+{"service": "api", "latency_ms": 4292, "event": "response_sent", "session_id": "k3-challenge-s04", "feature": "refund", "correlation_id": "req-ac019214", "ts": "2026-08-11T04:12:51.303657Z"}
+```
+Đối chiếu thêm log `incident_enabled`:
+```json
+{"service": "control", "payload": {"name": "rag_slow"}, "event": "incident_enabled", "ts": "2026-08-11T04:12:38.814981Z"}
+```
+xác nhận incident `rag_slow` được bật đúng 4.1 giây trước khi request đầu tiên của challenge tới.
+
+- Root cause: Có 2 nguyên nhân cộng hưởng:
+  1. **Nguyên nhân chính (theo thiết kế incident)**: `rag_slow` được kích hoạt khiến hàm `retrieve()` trong `app/mock_rag.py` thêm `time.sleep(2.5)`, chỉ ảnh hưởng feature `refund` vì corpus tra cứu của incident này match đúng từ khóa "refund" trong `CORPUS`. Điều này cộng với baseline xử lý (~1.4-1.7s) tạo ra latency ~3.9-4.3s mỗi request.
+  2. **Nguyên nhân phụ (vấn đề kiến trúc)**: Dựa vào timestamp log, 5 request được gửi với `--concurrency 5` nhưng bị xử lý **tuần tự hoàn toàn** — response của request N kết thúc chỉ 2ms trước khi request N+1 bắt đầu, không có overlap. Nguyên nhân là do `chat()` trong `app/main.py` là `async def` nhưng gọi `agent.run()` (hàm đồng bộ, chứa `time.sleep()` blocking) trực tiếp không qua `await` hay `run_in_executor` — khiến toàn bộ event loop bị chặn (block) trong lúc xử lý từng request, biến 5 request "song song" thành hàng đợi nối tiếp. Đây là lý do request cuối cùng trong batch client-side đo được latency lên tới ~20s dù server-side mỗi request riêng lẻ chỉ mất ~4s.
+
+- Fix action:
+  - Ngắn hạn (khắc phục sự cố `rag_slow`): tắt incident ngay khi phát hiện (`python scripts/inject_incident.py --disable`), đồng thời với hệ thống production thật sẽ cần kiểm tra vector store/RAG backend có đang gặp sự cố thật (timeout, overload) hay không.
+  - Dài hạn (khắc phục vấn đề kiến trúc phát hiện thêm): chuyển các lời gọi blocking (`agent.run()`, bên trong có `time.sleep`, retrieval, LLM call) sang chạy bất đồng bộ đúng cách — dùng `await asyncio.to_thread(agent.run, ...)` hoặc chuyển toàn bộ pipeline sang async I/O thật sự — để đảm bảo nhiều request có thể được xử lý song song, tránh hiệu ứng domino khi một request chậm làm nghẽn toàn bộ hàng đợi.
+
+- Preventive measure:
+  - Alert `high_latency_p95` (đã cấu hình ở CP2, ngưỡng 3000ms/5 phút) sẽ tự động cảnh báo on-call ngay khi P95 vượt ngưỡng, sớm hơn việc người dùng tự phát hiện.
+  - Thêm health-check định kỳ cho RAG/vector store để phát hiện degradation trước khi ảnh hưởng traffic thật.
+  - Viết thêm test đo throughput dưới tải đồng thời (concurrency test) trong CI để phát hiện sớm vấn đề "giả song song" như trường hợp này, tránh việc một request chậm kéo chậm toàn bộ hệ thống.
+  - Cân nhắc thêm timeout + circuit breaker cho tầng RAG retrieval, tránh một dependency chậm làm nghẽn toàn bộ luồng xử lý.
 
 ## 7. Đóng góp cá nhân
 
