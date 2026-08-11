@@ -1,4 +1,4 @@
-from __future__ import annotations
+from future import annotations
 
 from collections import Counter
 from statistics import mean
@@ -22,10 +22,8 @@ def record_request(latency_ms: int, cost_usd: float, tokens_in: int, tokens_out:
     QUALITY_SCORES.append(quality_score)
 
 
-
 def record_error(error_type: str) -> None:
     ERRORS[error_type] += 1
-
 
 
 def percentile(values: list[int], p: int) -> float:
@@ -36,8 +34,11 @@ def percentile(values: list[int], p: int) -> float:
     return float(items[idx])
 
 
-
 def snapshot() -> dict:
+    total_errors = sum(ERRORS.values())
+    total_requests = TRAFFIC + total_errors
+    error_rate = (total_errors / total_requests * 100) if total_requests > 0 else 0.0
+
     return {
         "traffic": TRAFFIC,
         "latency_p50": percentile(REQUEST_LATENCIES, 50),
@@ -47,6 +48,7 @@ def snapshot() -> dict:
         "total_cost_usd": round(sum(REQUEST_COSTS), 4),
         "tokens_in_total": sum(REQUEST_TOKENS_IN),
         "tokens_out_total": sum(REQUEST_TOKENS_OUT),
+        "error_rate_pct": round(error_rate, 2),
         "error_breakdown": dict(ERRORS),
         "quality_avg": round(mean(QUALITY_SCORES), 4) if QUALITY_SCORES else 0.0,
     }
