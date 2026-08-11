@@ -1,11 +1,11 @@
-from future import annotations
+from __future__ import annotations
 
 import hashlib
 import re
 
 PII_PATTERNS: dict[str, str] = {
-    "email": r"[\w.-]+@[\w.-]+.\w+",
-    "phone_vn": r"(?<!\d)(?:+84|0)(?:[ .-]?\d){9}(?!\d)",
+    "email": r"[\w\.-]+@[\w\.-]+\.\w+",
+    "phone_vn": r"(?<!\d)(?:\+84|0)(?:[ .-]?\d){9}(?!\d)",
     "cccd": r"\b\d{12}\b",
     "credit_card": r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
     "passport": r"\b[A-Z]\d{7,8}\b",
@@ -16,7 +16,7 @@ PII_PATTERNS: dict[str, str] = {
 def scrub_text(text: str) -> str:
     safe = text
     for name, pattern in PII_PATTERNS.items():
-        safe = re.sub(pattern, f"[REDACTED{name.upper()}]", safe)
+        safe = re.sub(pattern, f"[REDACTED_{name.upper()}]", safe)
     return safe
 
 

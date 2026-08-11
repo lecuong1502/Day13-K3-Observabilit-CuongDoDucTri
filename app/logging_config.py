@@ -1,4 +1,4 @@
-from future import annotations
+from __future__ import annotations
 
 import logging
 import os
@@ -14,7 +14,7 @@ LOG_PATH = Path(os.getenv("LOG_PATH", "data/logs.jsonl"))
 
 
 class JsonlFileProcessor:
-    def call(self, logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    def __call__(self, logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         rendered = structlog.processors.JSONRenderer()(logger, method_name, event_dict)
         with LOG_PATH.open("a", encoding="utf-8") as f:

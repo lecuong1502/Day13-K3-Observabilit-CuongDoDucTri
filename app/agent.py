@@ -54,7 +54,6 @@ class LabAgent:
                 "prompt_label": prompt.label,
                 "prompt_version": prompt.version,
                 "prompt_source": prompt.source,
-                "correlation_id": get_contextvars().get("correlation_id", "MISSING"),
             },
         )
         langfuse_client.update_current_generation(
@@ -67,6 +66,7 @@ class LabAgent:
                 "prompt_version": prompt.version,
                 "prompt_source": prompt.source,
                 "prompt_fetch_error": prompt.fetch_error,
+                "correlation_id": get_contextvars().get("correlation_id", "MISSING"),
             },
             usage_details={
                 "prompt_tokens": response.usage.input_tokens,
